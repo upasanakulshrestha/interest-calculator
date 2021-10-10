@@ -8,6 +8,7 @@ import com.banking.interestcalculator.repository.AccountHistoryRepository;
 import io.swagger.models.Response;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.context.config.ConfigDataNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -57,13 +58,68 @@ public class AccountService {
         return accountDetailsRepository.findByBsb(bsb);
     }
 
-    /*public Flux<AccountDetails> findByAccountIds(List<Integer> accountIds) {
-        return Flux.fromIterable(accountIds)
-                .parallel()
-                .runOn(Schedulers.elastic())
-                .flatMap(i -> accountDetailsRepository.findByAccountId(i))
-                .ordered((u1, u2) -> u2.getAccountId() - u1.getAccountId());
-    }*/
+    private double calculateInterest(double amount) {
+        double dailyInterest = 0.01;
+        double gainedInterest = amount * dailyInterest/100;
+        return amount + gainedInterest;
+    }
+
+    // will save only records having account present in DB
+    public Flux<Account> calculateInterestService1(List<Account> accounts, DailyAccountRequest request){
+        return Flux.fromIterable(accounts).flatMap(account -> {
+            return accountDetailsRepository.findByAccountId(account.getAccountId()).flatMap(accountDetails -> {
+                AccountHistory accountHistory = new AccountHistory();
+                accountHistory.setCreditedDate(request.getBalanceDate());
+                accountHistory.setAccountId(account.getAccountId());
+                accountHistory.setBsb(account.getBsb());
+                accountHistory.setTrnType("Interest");
+                accountHistory.setCreditDebitIndicator('C');
+                accountHistory.setAmount(calculateInterest(account.getAmount()));
+                return accountHistoryRepository.save(accountHistory).thenReturn(account);
+            });
+        });
+    }
+
+    /**
+     * My junk work start here plz ignore, not deleting it as of now as spend lot of time on them :P
+     */
+
+    //Working but saving all records even the account is not present
+    public Flux<Account> calculateInterestService(List<Account> accounts, DailyAccountRequest request){
+        return Flux.fromIterable(accounts).flatMap(account ->  {
+            if(accountDetailsRepository.findByAccountId(account.getAccountId())!=null){
+                AccountHistory accountHistory = new AccountHistory();
+                accountHistory.setCreditedDate(request.getBalanceDate());
+                accountHistory.setAccountId(account.getAccountId());
+                accountHistory.setBsb(account.getBsb());
+                accountHistory.setTrnType("Interest");
+                accountHistory.setCreditDebitIndicator('C');
+                accountHistory.setAmount(calculateInterest(account.getAmount()));
+                return accountHistoryRepository.save(accountHistory).thenReturn(account);
+            }
+            return Flux.just(account);
+        });
+    }
+
+    private BiFunction<Account, DailyAccountRequest, AccountHistoryDTO> DTOBiFunction = (x1, x2) -> AccountHistoryDTO.builder()
+            .accountId(x1.getAccountId())
+            .bsb(x1.getBsb())
+            .creditedDate(x2.getBalanceDate())
+            .trnType("Interest")
+            .creditDebitIndicator('C')
+            .amount(calculateInterest(x1.getAmount())).build();
+
+    public Flux<AccountHistoryDTO> calculateDailyInterestAndStore1(List<Account> accounts, DailyAccountRequest request) {
+        Flux<Account> accountFlux = Flux.fromIterable(accounts);
+        /*Flux<Account> accountFlux = Flux.create((FluxSink<Account> fluxSlink) -> {
+            IntStream.range(0,5).peek(i -> System.out.println("Going to use "+i))
+                    .forEach(fluxSlink::next);
+            fluxSlink.next();
+        });*/
+        //accountFlux.subscribe(System.out::println);
+
+        return Flux.zip(accountFlux, Flux.just(request), DTOBiFunction);
+    }
 
     public Mono<List<Integer>> calculateDailyInterestAndStore(List<Account> accounts, LocalDate balanceDate) {
         double dailyInterest=1;
@@ -103,33 +159,5 @@ public class AccountService {
                     });*/
         }
         return Mono.just(accountIds);
-
-
-    }
-
-    public Flux<AccountHistoryDTO> calculateDailyInterestAndStore1(List<Account> accounts, DailyAccountRequest request) {
-        Flux<Account> accountFlux = Flux.fromIterable(accounts);
-        /*Flux<Account> accountFlux = Flux.create((FluxSink<Account> fluxSlink) -> {
-            IntStream.range(0,5).peek(i -> System.out.println("Going to use "+i))
-                    .forEach(fluxSlink::next);
-            fluxSlink.next();
-        });*/
-        //accountFlux.subscribe(System.out::println);
-
-        return Flux.zip(accountFlux, Flux.just(request), DTOBiFunction);
-    }
-
-    private BiFunction<Account, DailyAccountRequest, AccountHistoryDTO> DTOBiFunction = (x1, x2) -> AccountHistoryDTO.builder()
-            .accountId(x1.getAccountId())
-            .bsb(x1.getBsb())
-            .creditedDate(x2.getBalanceDate())
-            .trnType("Interest")
-            .creditDebitIndicator('C')
-            .amount(calculateInterest(x1.getAmount())).build();
-
-    private double calculateInterest(double amount) {
-        double dailyInterest = 0.01;
-        double gainedInterest = amount * dailyInterest/100;
-        return amount + gainedInterest;
     }
 }
