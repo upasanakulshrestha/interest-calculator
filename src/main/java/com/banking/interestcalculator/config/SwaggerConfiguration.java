@@ -11,6 +11,9 @@ import springfox.documentation.spi.DocumentationType;
 import springfox.documentation.spring.web.plugins.Docket;
 
 @Configuration
+/**
+ * use http://localhost:8080/swagger-ui/index.html
+ */
 public class SwaggerConfiguration implements WebFluxConfigurer {
     @Bean
     public Docket api() {
