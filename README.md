@@ -18,4 +18,7 @@ save the daily end of day details under AccountHistory table only for accounts p
 
 
 TODO:
-1. on month end day for each records present under AccountHistory, return the last amount present in the table for all accounts.
+
+1. on month end day (assuming coming from JMS with updated amount for eachAccount) for each records present under AccountHistory, return the last amount present in the table for all accounts.
+2. validations on account creation
+3. (Also send the JMS message)
