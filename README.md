@@ -13,9 +13,9 @@ There are api to create and fetch account details
 use /create to create the account
 can fetch the account based on accountId and bsb
 
-use daily to read the daily end-of-day message which returns amount with interest for day (assumed the interest as 0.01) // still under progress,
+use /dailyRequest to read the daily end-of-day message which returns amount with interest for day (assumed the interest as 0.01) 
+save the daily end of day details under AccountHistory table only for accounts present in account_details table
 
 
 TODO:
-1. save the daily end of day details under AccountHistory table 
-2. on month end day for each records present under AccountHistory, return the last amount present in the table for all accounts.
+1. on month end day for each records present under AccountHistory, return the last amount present in the table for all accounts.
